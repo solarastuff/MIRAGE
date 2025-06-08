@@ -71,23 +71,26 @@ task.spawn(function()
             -- Stop holding jump immediately after firing dash args
             jumpHolding = false
 
-            -- Lock-on
-            task.wait(0.16)
+            -- Ping-based wait before lock-on
+            local ping = player:GetNetworkPing() * 1000 -- ms
+            if ping <= 50 then
+                task.wait(0.16)
+            else
+                task.wait(0.17)
+            end
 
             local nearest = getNearestPlayer(char)
             if nearest and char and char:FindFirstChild("HumanoidRootPart") and nearest.Character and nearest.Character:FindFirstChild("HumanoidRootPart") then
                 local myHRP = char.HumanoidRootPart
                 local theirHRP = nearest.Character.HumanoidRootPart
 
+                -- Disable AutoRotate so character faces target
                 humanoid.AutoRotate = false
 
-                local startTime = tick()
-                while tick() - startTime < 0.1 do
-                    myHRP.CFrame = CFrame.new(myHRP.Position, Vector3.new(theirHRP.Position.X, myHRP.Position.Y, theirHRP.Position.Z))
-                    task.wait()
-                end
+                -- Lock-on positioning
+                myHRP.CFrame = CFrame.new(myHRP.Position, Vector3.new(theirHRP.Position.X, myHRP.Position.Y, theirHRP.Position.Z))
 
-                humanoid.AutoRotate = true
+                -- No AutoRotate re-enable to keep facing direction
             end
 
             -- Prevent spamming by waiting a bit before checking animation again
