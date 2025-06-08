@@ -1,0 +1,100 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local ANIM_ID = 12296882427
+
+local jumpHolding = false
+
+local function isAnimPlaying(humanoid, animId)
+    if not humanoid then return false end
+    for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+        if track.Animation.AnimationId == "rbxassetid://" .. animId then
+            return true
+        end
+    end
+    return false
+end
+
+local function getNearestPlayer(char)
+    local nearest = nil
+    local shortest = math.huge
+    for _, other in ipairs(Players:GetPlayers()) do
+        if other ~= player and other.Character and other.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (char.HumanoidRootPart.Position - other.Character.HumanoidRootPart.Position).Magnitude
+            if dist < shortest then
+                shortest = dist
+                nearest = other
+            end
+        end
+    end
+    return nearest
+end
+
+task.spawn(function()
+    while true do
+        local char = player.Character
+        if not char or not char.Parent then
+            task.wait(0.5)
+            continue
+        end
+
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid and isAnimPlaying(humanoid, ANIM_ID) then
+            -- Hold jump
+            if not jumpHolding then
+                jumpHolding = true
+                task.spawn(function()
+                    while jumpHolding do
+                        if char and char:FindFirstChild("Humanoid") then
+                            char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                        end
+                        task.wait(0.1)
+                    end
+                end)
+            end
+
+            -- Dash
+            task.wait(2.21)
+
+            local communicate = char:FindFirstChild("Communicate")
+            if communicate then
+                local args = {
+                    {
+                        Dash = Enum.KeyCode.W,
+                        Key = Enum.KeyCode.Q,
+                        Goal = "KeyPress"
+                    }
+                }
+                communicate:FireServer(unpack(args))
+            end
+
+            -- Stop holding jump immediately after firing dash args
+            jumpHolding = false
+
+            -- Lock-on
+            task.wait(0.16)
+
+            local nearest = getNearestPlayer(char)
+            if nearest and char and char:FindFirstChild("HumanoidRootPart") and nearest.Character and nearest.Character:FindFirstChild("HumanoidRootPart") then
+                local myHRP = char.HumanoidRootPart
+                local theirHRP = nearest.Character.HumanoidRootPart
+
+                humanoid.AutoRotate = false
+
+                local startTime = tick()
+                while tick() - startTime < 0.1 do
+                    myHRP.CFrame = CFrame.new(myHRP.Position, Vector3.new(theirHRP.Position.X, myHRP.Position.Y, theirHRP.Position.Z))
+                    task.wait()
+                end
+
+                humanoid.AutoRotate = true
+            end
+
+            -- Prevent spamming by waiting a bit before checking animation again
+            task.wait(0.5)
+        else
+            jumpHolding = false
+            task.wait(0.1)
+        end
+    end
+end)
