@@ -101,3 +101,107 @@ task.spawn(function()
         end
     end
 end)
+
+
+
+-twsted
+
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+local function getNearestPlayer()
+	local nearestPlayer = nil
+	local shortestDist = math.huge
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+			local targetHRP = plr.Character.HumanoidRootPart
+			local dist = (hrp.Position - targetHRP.Position).Magnitude
+			if dist < shortestDist then
+				shortestDist = dist
+				nearestPlayer = plr
+			end
+		end
+	end
+	return nearestPlayer
+end
+
+-- Function to get local player's ping in milliseconds
+local function getPing()
+	return math.floor(Players:GetPlayers()[1]:GetNetworkPing() * 1000)
+end
+
+UIS.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == Enum.KeyCode.R then
+
+		local args = {
+			{
+				Goal = "LeftClick"
+			}
+		}
+		char:WaitForChild("Communicate"):FireServer(unpack(args))
+
+		task.wait(1.2)
+
+		local args = {
+			{
+				Goal = "LeftClickRelease"
+			}
+		}
+		char:WaitForChild("Communicate"):FireServer(unpack(args))
+
+		local backOffset = CFrame.new(0, 0, 3)
+		local goal = { CFrame = hrp.CFrame * backOffset }
+		local tween = TweenService:Create(hrp, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), goal)
+		tween:Play()
+
+		-- Check ping before next wait
+		local ping = getPing()
+		local adjustedWait = ping <= 50 and 0.4 or 0.49
+		task.wait(adjustedWait)
+
+		local args = {
+			{
+				Dash = Enum.KeyCode.W,
+				Key = Enum.KeyCode.Q,
+				Goal = "KeyPress"
+			}
+		}
+		char:WaitForChild("Communicate"):FireServer(unpack(args))
+
+		local nearest = getNearestPlayer()
+		if nearest and nearest.Character and nearest.Character:FindFirstChild("HumanoidRootPart") then
+			local targetHRP = nearest.Character.HumanoidRootPart
+			local lockOn = true
+
+			if char:FindFirstChild("Humanoid") then
+				char.Humanoid.AutoRotate = false
+			end
+
+			local conn
+			conn = RunService.Heartbeat:Connect(function()
+				if not lockOn then
+					conn:Disconnect()
+					if char:FindFirstChild("Humanoid") then
+						char.Humanoid.AutoRotate = true
+					end
+					return
+				end
+				local lookVector = (targetHRP.Position - hrp.Position).Unit
+				local currentCFrame = hrp.CFrame
+				local targetCFrame = CFrame.new(hrp.Position, hrp.Position + lookVector)
+				hrp.CFrame = currentCFrame:Lerp(targetCFrame, 0.3)
+			end)
+
+			task.delay(0.5, function()
+				lockOn = false
+			end)
+		end
+	end
+end)
